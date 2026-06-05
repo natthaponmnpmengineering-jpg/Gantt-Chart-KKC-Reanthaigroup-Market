@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gantt Chart - Project Timeline</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #0f1117;
+  color: #e2e8f0;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+/* ===== HEADER ===== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.header h1 { font-size: 22px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px; }
+.title-edit-input {
+  font-size: 22px; font-weight: 700; color: #f8fafc;
+  background: #1e293b; border: 1.5px solid #3b82f6;
+  border-radius: 8px; padding: 2px 10px;
+  outline: none; font-family: inherit; min-width: 200px;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+.title-edit-btn {
+  background: none; border: none; cursor: pointer;
+  color: #475569; font-size: 15px; padding: 2px 4px;
+  border-radius: 5px; transition: color 0.15s;
+  line-height: 1;
+}
+.title-edit-btn:hover { color: #94a3b8; }
+.header-subtitle { font-size: 13px; color: #64748b; margin-top: 2px; }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn {
+  padding: 7px 14px; border-radius: 8px; border: 1px solid #334155;
+  background: #1e293b; color: #cbd5e1; cursor: pointer; font-size: 13px;
+  transition: all 0.15s; white-space: nowrap;
+}
+.btn:hover { background: #334155; color: #f1f5f9; }
+.btn.primary { background: #3b82f6; border-color: #3b82f6; color: white; }
+.btn.primary:hover { background: #2563eb; }
+.btn.danger { background: #dc2626; border-color: #dc2626; color: white; }
+.btn.danger:hover { background: #b91c1c; }
+.btn.success { background: #059669; border-color: #059669; color: white; }
+.btn.success:hover { background: #047857; }
+.btn.warning { background: #d97706; border-color: #d97706; color: white; }
+.btn.warning:hover { background: #b45309; }
+
+/* ===== STATS ===== */
+.stats-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.stat-card {
+  background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+  padding: 10px 16px; flex: 1; min-width: 100px;
+}
+.stat-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-value { font-size: 20px; font-weight: 700; color: #f1f5f9; margin-top: 2px; }
+.stat-sub { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+
+/* ===== MAIN LAYOUT ===== */
+.main-layout { display: flex; gap: 16px; align-items: flex-start; }
+.gantt-section { flex: 1; min-width: 0; }
+
+/* ===== GANTT ===== */
+.gantt-wrapper {
+  background: #1e293b; border: 1px solid #334155;
+  border-radius: 12px; overflow: hidden;
+}
+.gantt-container {
+  display: grid; grid-template-columns: 260px 1fr;
+  overflow: auto; max-height: 560px;
+}
+.task-list-panel {
+  background: #1e293b; border-right: 1px solid #334155;
+  position: sticky; left: 0; z-index: 20;
+}
+.panel-header {
+  background: #0f1117; border-bottom: 1px solid #334155;
+  padding: 10px 12px; display: grid;
+  grid-template-columns: 1fr 52px 52px 28px;
+  gap: 4px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px; color: #64748b;
+  position: sticky; top: 0; z-index: 10;
+}
+.task-row {
+  display: grid; grid-template-columns: 1fr 52px 52px 28px;
+  gap: 4px; padding: 0 8px; height: 44px; align-items: center;
+  border-bottom: 1px solid #1a2537; cursor: pointer; transition: background 0.1s;
+}
+.task-row:hover { background: #243047; }
+.task-row.phase-header { background: #162032; }
+.task-row.selected { background: #1d3a5f; border-left: 3px solid #3b82f6; }
+.task-name {
+  font-size: 12px; color: #cbd5e1; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 6px;
+}
+.phase-header .task-name { font-weight: 600; font-size: 12px; color: #f1f5f9; }
+.task-indent { padding-left: 8px; }
+.phase-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.task-duration, .task-pct { font-size: 11px; color: #64748b; text-align: center; }
+.task-pct { color: #94a3b8; }
+.row-edit-btn {
+  width: 22px; height: 22px; border-radius: 5px; border: none;
+  background: transparent; color: #475569; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; transition: all 0.15s;
+}
+.task-row:hover .row-edit-btn { color: #94a3b8; background: #334155; }
+
+/* ===== TIMELINE ===== */
+.timeline-panel { overflow-x: auto; min-width: 0; }
+.timeline-header {
+  background: #0f1117; border-bottom: 1px solid #334155;
+  height: 40px; position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center;
+}
+.month-label {
+  font-size: 11px; font-weight: 600; color: #94a3b8;
+  text-align: center; flex-shrink: 0; border-right: 1px solid #334155;
+  height: 100%; display: flex; align-items: center; justify-content: center;
+}
+.gantt-rows { position: relative; min-height: 100%; }
+.gantt-row {
+  height: 44px; border-bottom: 1px solid #1a2537;
+  position: relative; display: flex; align-items: center;
+}
+.gantt-row.phase-header-row { background: #162032; }
+.grid-line {
+  position: absolute; top: 0; bottom: 0;
+  width: 1px; background: #1e2d40; pointer-events: none;
+}
+.today-line {
+  position: absolute; top: 0; bottom: 0;
+  width: 2px; background: #ef4444; z-index: 5; pointer-events: none;
+}
+.today-line::before {
+  content: 'Today'; position: absolute; top: 2px; left: 4px;
+  font-size: 9px; color: #ef4444; white-space: nowrap;
+}
+.bar-container {
+  position: absolute; height: 26px; border-radius: 5px;
+  overflow: hidden; cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+.bar-container:hover { filter: brightness(1.2); transform: scaleY(1.05); z-index: 10; }
+.bar-fill {
+  height: 100%; opacity: 0.35; border-radius: 5px;
+  width: 100%; position: absolute; top: 0; left: 0;
+}
+.bar-progress {
+  position: absolute; top: 0; left: 0; height: 100%;
+  border-radius: 5px; opacity: 0.85;
+}
+.bar-label {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  left: 8px; font-size: 10px; color: white; font-weight: 600;
+  white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  pointer-events: none;
+}
+.milestone {
+  width: 14px; height: 14px; transform: rotate(45deg);
+  border-radius: 2px; position: absolute; cursor: pointer;
+  transition: filter 0.15s; box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+.milestone:hover { filter: brightness(1.3); }
+.legend {
+  display: flex; gap: 12px; padding: 10px 16px;
+  border-top: 1px solid #334155; flex-wrap: wrap; align-items: center;
+}
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #94a3b8; }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+.scrollbar-hint {
+  text-align: center; padding: 5px;
+  font-size: 11px; color: #334155; border-top: 1px solid #1e293b;
+}
+
+/* ===== TOOLTIP ===== */
+.tooltip {
+  position: fixed; background: #0f1117; border: 1px solid #334155;
+  border-radius: 10px; padding: 12px 14px; font-size: 12px; z-index: 2000;
+  pointer-events: none; opacity: 0; transition: opacity 0.15s;
+  min-width: 200px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.tooltip.visible { opacity: 1; }
+.tooltip-title { font-weight: 700; font-size: 13px; color: #f1f5f9; margin-bottom: 8px; }
+.tooltip-row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 4px; color: #94a3b8; }
+.tooltip-row span:last-child { color: #e2e8f0; font-weight: 500; }
+.tooltip-progress-bar { margin-top: 8px; height: 6px; background: #334155; border-radius: 3px; overflow: hidden; }
+.tooltip-progress-fill { height: 100%; border-radius: 3px; }
+
+/* ===== EDIT PANEL ===== */
+.edit-panel {
+  width: 320px; flex-shrink: 0;
+  background: #1e293b; border: 1px solid #334155;
+  border-radius: 12px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.edit-panel-header {
+  background: #0f1117; padding: 14px 16px;
+  border-bottom: 1px solid #334155;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.edit-panel-header h2 { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+.edit-panel-tabs {
+  display: flex; border-bottom: 1px solid #334155; background: #0f1117;
+}
+.tab-btn {
+  flex: 1; padding: 10px 8px; font-size: 12px; font-weight: 600;
+  background: none; border: none; color: #64748b; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: all 0.15s;
+}
+.tab-btn.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+.tab-btn:hover:not(.active) { color: #94a3b8; background: #1e293b; }
+.edit-panel-body { padding: 16px; overflow-y: auto; flex: 1; max-height: 580px; }
+
+/* Form elements */
+.form-group { margin-bottom: 14px; }
+.form-label {
+  display: block; font-size: 11px; font-weight: 600;
+  color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid #334155; background: #0f1117;
+  color: #e2e8f0; font-size: 13px; font-family: inherit;
+  transition: border-color 0.15s;
+  outline: none;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+.form-select option { background: #1e293b; }
+.form-textarea { resize: vertical; min-height: 60px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Progress slider */
+.progress-row { display: flex; align-items: center; gap: 10px; }
+.progress-slider {
+  flex: 1; -webkit-appearance: none; appearance: none;
+  height: 6px; border-radius: 3px; background: #334155;
+  outline: none; cursor: pointer;
+}
+.progress-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #3b82f6; cursor: pointer; border: 2px solid #0f1117;
+}
+.progress-value {
+  min-width: 38px; text-align: center; font-size: 13px;
+  font-weight: 700; color: #3b82f6;
+}
+
+/* Color picker row */
+.color-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.color-swatch {
+  width: 26px; height: 26px; border-radius: 6px; cursor: pointer;
+  border: 2px solid transparent; transition: all 0.15s;
+}
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.selected { border-color: white; box-shadow: 0 0 0 2px rgba(255,255,255,0.3); }
+
+/* Phase list */
+.phase-list-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 8px;
+  border: 1px solid #334155; background: #0f1117;
+  margin-bottom: 8px; cursor: pointer; transition: background 0.1s;
+}
+.phase-list-item:hover { background: #162032; }
+.phase-list-item.selected { border-color: #3b82f6; background: #1d3a5f; }
+.phase-name-text { flex: 1; font-size: 13px; font-weight: 600; color: #f1f5f9; }
+.phase-task-count { font-size: 11px; color: #64748b; }
+.mini-btn {
+  width: 24px; height: 24px; border-radius: 5px;
+  border: 1px solid #334155; background: #1e293b;
+  color: #94a3b8; cursor: pointer; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.mini-btn:hover { background: #334155; color: #f1f5f9; }
+.mini-btn.del:hover { background: #7f1d1d; border-color: #dc2626; color: #fca5a5; }
+
+/* Task list in panel */
+.panel-task-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 8px;
+  border: 1px solid #1a2537; background: #0f1117;
+  margin-bottom: 6px; cursor: pointer; transition: background 0.1s;
+}
+.panel-task-item:hover { background: #162032; border-color: #334155; }
+.panel-task-item.selected { border-color: #3b82f6; background: #1d3a5f; }
+.panel-task-name { flex: 1; font-size: 12px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.panel-task-pct { font-size: 11px; font-weight: 600; color: #94a3b8; min-width: 30px; text-align: right; }
+
+/* Save banner */
+.save-banner {
+  display: none; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: #1d3a5f; border-bottom: 1px solid #2563eb;
+  font-size: 12px; color: #93c5fd; gap: 8px;
+}
+.save-banner.visible { display: flex; }
+.save-banner-btns { display: flex; gap: 6px; }
+
+/* Empty state */
+.empty-state {
+  text-align: center; padding: 32px 16px; color: #475569;
+}
+.empty-state-icon { font-size: 32px; margin-bottom: 8px; }
+.empty-state-text { font-size: 13px; }
+
+/* Milestone checkbox */
+.checkbox-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; cursor: pointer;
+}
+.checkbox-row input[type="checkbox"] {
+  width: 16px; height: 16px; accent-color: #3b82f6; cursor: pointer;
+}
+.checkbox-label { font-size: 13px; color: #cbd5e1; }
+
+/* Section divider */
+.section-divider {
+  height: 1px; background: #334155; margin: 16px 0;
+}
+.section-title {
+  font-size: 11px; font-weight: 700; color: #64748b;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+/* Notification toast */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: #1e293b; border: 1px solid #334155;
+  border-radius: 10px; padding: 12px 16px;
+  font-size: 13px; color: #f1f5f9; z-index: 3000;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  transform: translateY(80px); opacity: 0;
+  transition: all 0.3s;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-color: #059669; background: #064e3b22; }
+.toast.error { border-color: #dc2626; background: #7f1d1d22; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1 id="projectTitle">
+      <span id="titleText">📊 Project Gantt Chart</span>
+      <button class="title-edit-btn" onclick="startEditTitle()" title="แก้ไขชื่อโครงการ">✏️</button>
+    </h1>
+    <div class="header-subtitle">คลิก ✏️ ที่แถวงาน หรือเลือก Tab เพื่อแก้ไขข้อมูล</div>
+  </div>
+  <div class="controls">
+    <button class="btn primary" onclick="openAddTask()">+ เพิ่มงาน</button>
+    <button class="btn" onclick="scrollToToday()">📍 วันนี้</button>
+    <button class="btn" onclick="exportData()">💾 Export JSON</button>
+  </div>
+</div>
+
+<div class="save-banner" id="saveBanner">
+  <span>⚠️ มีการแก้ไขที่ยังไม่ได้บันทึก</span>
+  <div class="save-banner-btns">
+    <button class="btn success" onclick="applyChanges()">✅ บันทึก</button>
+    <button class="btn" onclick="discardChanges()">↩ ยกเลิก</button>
+  </div>
+</div>
+
+<div class="stats-bar" id="statsBar"></div>
+
+<div class="main-layout">
+  <!-- GANTT CHART -->
+  <div class="gantt-section">
+    <div class="gantt-wrapper">
+      <div class="gantt-container" id="ganttContainer">
+        <div class="task-list-panel">
+          <div class="panel-header">
+            <span>ชื่องาน</span>
+            <span style="text-align:center">วัน</span>
+            <span style="text-align:center">%</span>
+            <span></span>
+          </div>
+          <div id="taskListBody"></div>
+        </div>
+        <div class="timeline-panel" id="timelinePanel">
+          <div class="timeline-header" id="timelineHeader"></div>
+          <div class="gantt-rows" id="ganttRows"></div>
+        </div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="scrollbar-hint">← เลื่อนซ้าย/ขวาเพื่อดู Timeline →</div>
+    </div>
+  </div>
+
+  <!-- EDIT PANEL -->
+  <div class="edit-panel">
+    <div class="edit-panel-header">
+      <h2>✏️ แก้ไขข้อมูล</h2>
+      <span id="editPanelHint" style="font-size:11px;color:#475569">เลือกงานจาก Chart</span>
+    </div>
+    <div class="edit-panel-tabs">
+      <button class="tab-btn active" onclick="switchTab('task')" id="tab-task">📋 งาน</button>
+      <button class="tab-btn" onclick="switchTab('phase')" id="tab-phase">📁 Phase</button>
+      <button class="tab-btn" onclick="switchTab('settings')" id="tab-settings">⚙️ โครงการ</button>
+    </div>
+    <div class="edit-panel-body" id="editPanelBody">
+      <!-- Filled dynamically -->
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ======= DATA =======
+let PHASES = [
+  {
+    id: 'phase1', name: '🔍 Phase 1: วางแผนโครงการ', color: '#6366f1',
+    tasks: [
+      { id: 't1', name: 'กำหนดขอบเขตและเป้าหมาย', start: '2026-05-15', end: '2026-05-25', progress: 100, note: '', milestone: false },
+      { id: 't2', name: 'วิเคราะห์ความต้องการ', start: '2026-05-15', end: '2026-05-25', progress: 100, note: '', milestone: false },
+      { id: 't3', name: 'จัดทำแผนโครงการ', start: '2026-05-26', end: '2026-06-05', progress: 80, note: '', milestone: false },
+      { id: 't4', name: 'Kickoff Meeting', start: '2026-06-06', end: '2026-06-06', progress: 100, milestone: true, note: '' },
+    ]
+  },
+  {
+    id: 'phase2', name: '🎨 Phase 2: ออกแบบ', color: '#8b5cf6',
+    tasks: [
+      { id: 't5', name: 'ออกแบบ Architecture', start: '2026-05-20', end: '2026-05-25', progress: 100, note: '', milestone: false },
+      { id: 't6', name: 'ออกแบบงานโครงสร้าง', start: '2026-05-25', end: '2026-06-06', progress: 70, note: '', milestone: false },
+      { id: 't7', name: 'ออกแบบงานระบบไฟฟ้า', start: '2026-05-25', end: '2026-06-06', progress: 70, note: '', milestone: false },
+      { id: 't8', name: 'Design Review', start: '2026-06-06', end: '2026-06-06', progress: 100, note: '', milestone: true },
+      { id: 't1780628858391xl3j', name: 'จัดทำ Technical Spec', start: '2026-06-05', end: '2026-06-06', progress: 0, note: '', milestone: false },
+    ]
+  },
+  {
+    id: 'phase3', name: '⚙️ Phase 3: งานโครงสร้าง', color: '#06b6d4',
+    tasks: [
+      { id: 't9',  name: 'งานขุดดิน ฐานราก', start: '2026-06-08', end: '2026-06-10', progress: 0, note: '', milestone: false },
+      { id: 't10', name: 'งานติดตั้งฐานราก คอนกรีต', start: '2026-06-10', end: '2026-06-13', progress: 0, note: '', milestone: false },
+      { id: 't11', name: 'งานติดตั้ง เสาเหล็ก', start: '2026-06-13', end: '2026-06-14', progress: 0, note: '', milestone: false },
+      { id: 't12', name: 'ตรวจสอบงานโครงสร้าง', start: '2026-06-14', end: '2026-06-14', progress: 60, note: '', milestone: true },
+    ]
+  },
+  {
+    id: 'phase4', name: '⚙️ Phase 4: งานระบบไฟฟ้า', color: '#f59e0b',
+    tasks: [
+      { id: 't14', name: 'งานตู้ควบคุมระบบไฟฟ้า', start: '2026-05-31', end: '2026-06-14', progress: 40, note: '', milestone: false },
+      { id: 't15', name: 'งานติดตั้งระบบไฟฟ้าภายนอกอาคาร', start: '2026-06-14', end: '2026-06-15', progress: 0, note: '', milestone: false },
+      { id: 't16', name: 'งานติดตั้งชุดโคมไฟระย้า', start: '2026-06-15', end: '2026-06-16', progress: 0, note: '', milestone: false },
+      { id: 't17', name: 'งานติดตั้งชุดผ้าใบคลุมตลาด', start: '2026-06-16', end: '2026-06-16', progress: 0, note: '', milestone: false },
+      { id: 't1780629602631guir', name: 'ตรวจสอบงานระบบไฟฟ้า', start: '2026-06-15', end: '2026-06-15', progress: 0, milestone: true, note: '' },
+    ]
+  },
+  {
+    id: 'phase5', name: '🚀 Phase 5: ทดสอบระบบ', color: '#10b981',
+    tasks: [
+      { id: 't18', name: 'ตรวจสอบงานโครงสร้าง Final', start: '2026-06-16', end: '2026-06-16', progress: 0, note: '', milestone: true },
+      { id: 't19', name: 'ตรวจสอบงานระบบไฟฟ้า Final', start: '2026-06-16', end: '2026-06-16', progress: 0, note: '', milestone: true },
+      { id: 't20', name: 'ตรวจสอบงานตกแต่ง Final', start: '2026-06-17', end: '2026-06-17', progress: 0, milestone: true, note: '' },
+      { id: 't21', name: 'กำหนดส่งมอบงาน 🎉', start: '2026-06-20', end: '2026-06-20', progress: 0, note: '', milestone: true },
+    ]
+  },
+];
+
+const DEFAULT_PROJECT = { name: 'โครงการตลาด หน้าอาคารเหรียญไทย', start: '2026-05-15', end: '2026-06-20', today: '2026-06-05' };
+const STORAGE_KEY = 'gantt_data_v2';
+
+// Load from localStorage or use defaults
+(function loadFromStorage() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const d = JSON.parse(saved);
+      if (d.phases) PHASES = d.phases;
+      if (d.project) Object.assign(DEFAULT_PROJECT, d.project);
+    }
+  } catch(e) { /* use defaults */ }
+})();
+
+let PROJECT = { ...DEFAULT_PROJECT };
+let selectedTaskId = null;
+let selectedPhaseId = null;
+let pendingChanges = false;
+let currentTab = 'task';
+let COLORS = ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#f97316','#84cc16','#14b8a6'];
+
+// ======= STORAGE =======
+function saveToStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ project: PROJECT, phases: PHASES }));
+  } catch(e) { console.warn('localStorage save failed', e); }
+}
+
+// ======= HELPERS =======
+const $ = id => document.getElementById(id);
+function parseDate(s) { return new Date(s + 'T00:00:00'); }
+function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+function addDays(d, n) { let r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function formatDate(d) { return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }); }
+function uid() { return 't' + Date.now() + Math.random().toString(36).slice(2,6); }
+function phaseUid() { return 'p' + Date.now() + Math.random().toString(36).slice(2,6); }
+function allTasks() { return PHASES.flatMap(p => p.tasks.map(t => ({...t, phaseColor: p.color, phaseName: p.name, phaseId: p.id}))); }
+function findTask(id) { for (const p of PHASES) { const t = p.tasks.find(x => x.id === id); if (t) return { task: t, phase: p }; } return null; }
+function findPhase(id) { return PHASES.find(p => p.id === id); }
+function markChanged() { pendingChanges = true; $('saveBanner').classList.add('visible'); }
+function showToast(msg, type='success') {
+  const t = $('toast'); t.textContent = msg; t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ======= STATS =======
+function renderStats() {
+  const tasks = allTasks().filter(t => !t.milestone);
+  const total = tasks.length;
+  const done = tasks.filter(t => t.progress === 100).length;
+  const inProgress = tasks.filter(t => t.progress > 0 && t.progress < 100).length;
+  const notStarted = tasks.filter(t => t.progress === 0).length;
+  const avgProgress = total ? Math.round(tasks.reduce((s,t) => s + t.progress, 0) / total) : 0;
+  const TODAY = parseDate(PROJECT.today);
+  const projectEnd = parseDate(PROJECT.end);
+  const daysLeft = daysBetween(TODAY, projectEnd);
+  $('statsBar').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Tasks</div><div class="stat-value">${total}</div><div class="stat-sub">งานทั้งหมด</div></div>
+    <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value" style="color:#10b981">${done}</div><div class="stat-sub">เสร็จแล้ว</div></div>
+    <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-value" style="color:#f59e0b">${inProgress}</div><div class="stat-sub">กำลังทำ</div></div>
+    <div class="stat-card"><div class="stat-label">Not Started</div><div class="stat-value" style="color:#64748b">${notStarted}</div><div class="stat-sub">ยังไม่เริ่ม</div></div>
+    <div class="stat-card"><div class="stat-label">Progress</div><div class="stat-value" style="color:#6366f1">${avgProgress}%</div><div class="stat-sub">ความคืบหน้า</div></div>
+    <div class="stat-card"><div class="stat-label">Days Left</div><div class="stat-value" style="color:#06b6d4">${Math.max(0,daysLeft)}</div><div class="stat-sub">วันคงเหลือ</div></div>
+  `;
+}
+
+// ======= GANTT RENDER =======
+const COL_W = 28;
+let CHART_START, CHART_END, TOTAL_DAYS, TODAY_DATE;
+
+function computeRange() {
+  CHART_START = addDays(parseDate(PROJECT.start), -3);
+  CHART_END = addDays(parseDate(PROJECT.end), 5);
+  TOTAL_DAYS = daysBetween(CHART_START, CHART_END);
+  TODAY_DATE = parseDate(PROJECT.today);
+}
+
+function dayX(dateStr) { return daysBetween(CHART_START, parseDate(dateStr)) * COL_W; }
+
+function renderHeader() {
+  const header = $('timelineHeader');
+  header.innerHTML = '';
+  header.style.width = header.style.minWidth = (TOTAL_DAYS * COL_W) + 'px';
+  let d = new Date(CHART_START);
+  while (d <= CHART_END) {
+    const month = d.getMonth();
+    let count = 0;
+    let cur = new Date(d);
+    while (cur <= CHART_END && cur.getMonth() === month) { count++; cur.setDate(cur.getDate() + 1); }
+    const lbl = document.createElement('div');
+    lbl.className = 'month-label';
+    lbl.style.width = lbl.style.minWidth = (count * COL_W) + 'px';
+    lbl.textContent = d.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
+    header.appendChild(lbl);
+    d.setMonth(d.getMonth() + 1); d.setDate(1);
+  }
+}
+
+function renderGantt() {
+  computeRange();
+  renderHeader();
+  const taskListBody = $('taskListBody');
+  const ganttRows = $('ganttRows');
+  taskListBody.innerHTML = '';
+  ganttRows.innerHTML = '';
+  ganttRows.style.width = ganttRows.style.minWidth = (TOTAL_DAYS * COL_W) + 'px';
+
+  // Grid & today line
+  let d = new Date(CHART_START);
+  while (d <= CHART_END) {
+    if (d.getDate() === 1) {
+      const line = document.createElement('div');
+      line.className = 'grid-line';
+      line.style.left = daysBetween(CHART_START, d) * COL_W + 'px';
+      ganttRows.appendChild(line);
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  const todayLine = document.createElement('div');
+  todayLine.className = 'today-line';
+  todayLine.style.left = daysBetween(CHART_START, TODAY_DATE) * COL_W + 'px';
+  ganttRows.appendChild(todayLine);
+
+  PHASES.forEach(phase => {
+    addRow(taskListBody, ganttRows, phase, null);
+    phase.tasks.forEach(task => addRow(taskListBody, ganttRows, phase, task));
+  });
+
+  renderLegend();
+}
+
+function addRow(taskListBody, ganttRows, phase, task) {
+  const isPhase = !task;
+  const leftRow = document.createElement('div');
+  leftRow.className = 'task-row' + (isPhase ? ' phase-header' : ' task-indent') +
+    (!isPhase && task.id === selectedTaskId ? ' selected' : '');
+
+  if (isPhase) {
+    const pt = phase.tasks.filter(t => !t.milestone);
+    const avg = pt.length ? Math.round(pt.reduce((s,t)=>s+t.progress,0)/pt.length) : 0;
+    const totalD = phase.tasks.reduce((s,t) => t.milestone?s:s+daysBetween(parseDate(t.start),parseDate(t.end)),0);
+    leftRow.innerHTML = `
+      <div class="task-name"><span class="phase-dot" style="background:${phase.color}"></span><span>${phase.name}</span></div>
+      <div class="task-duration">${totalD}</div>
+      <div class="task-pct">${avg}%</div>
+      <button class="row-edit-btn" title="แก้ไข Phase" onclick="selectPhaseFromRow('${phase.id}',event)">✏️</button>
+    `;
+    leftRow.addEventListener('click', () => selectPhaseFromRow(phase.id, null));
+  } else {
+    const dur = task.milestone ? '—' : daysBetween(parseDate(task.start), parseDate(task.end));
+    const pctColor = task.progress===100?'#10b981':task.progress>0?'#f59e0b':'#64748b';
+    leftRow.innerHTML = `
+      <div class="task-name" style="padding-left:18px">${task.milestone?'<span style="font-size:10px;color:'+phase.color+'">◆</span>':''}<span>${task.name}</span></div>
+      <div class="task-duration">${dur}</div>
+      <div class="task-pct" style="color:${pctColor}">${task.milestone?'':task.progress+'%'}</div>
+      <button class="row-edit-btn" title="แก้ไขงาน" onclick="selectTaskFromRow('${task.id}',event)">✏️</button>
+    `;
+    leftRow.addEventListener('click', () => selectTaskFromRow(task.id, null));
+  }
+  taskListBody.appendChild(leftRow);
+
+  // Gantt row
+  const ganttRow = document.createElement('div');
+  ganttRow.className = 'gantt-row' + (isPhase ? ' phase-header-row' : '');
+  if (!isPhase) {
+    if (task.milestone) {
+      const x = daysBetween(CHART_START, parseDate(task.start)) * COL_W - 7;
+      const d = document.createElement('div');
+      d.className = 'milestone';
+      d.style.cssText = `left:${x}px;top:15px;background:${phase.color};border:2px solid white`;
+      d.addEventListener('mouseenter', e => showTooltip(e, task, phase));
+      d.addEventListener('mouseleave', hideTooltip);
+      d.addEventListener('click', () => selectTaskFromRow(task.id, null));
+      ganttRow.appendChild(d);
+    } else {
+      const x = daysBetween(CHART_START, parseDate(task.start)) * COL_W;
+      const w = Math.max((daysBetween(parseDate(task.start), parseDate(task.end)) + 1) * COL_W, 10);
+      const bar = document.createElement('div');
+      bar.className = 'bar-container';
+      bar.style.cssText = `left:${x}px;width:${w}px;top:9px;`;
+      const bg = document.createElement('div'); bg.className = 'bar-fill'; bg.style.background = phase.color; bar.appendChild(bg);
+      const prog = document.createElement('div'); prog.className = 'bar-progress'; prog.style.cssText=`width:${task.progress}%;background:${phase.color}`; bar.appendChild(prog);
+      if (w > 50) { const lbl=document.createElement('div'); lbl.className='bar-label'; lbl.textContent=w>100?task.name:task.progress+'%'; bar.appendChild(lbl); }
+      bar.addEventListener('mouseenter', e => showTooltip(e, task, phase));
+      bar.addEventListener('mouseleave', hideTooltip);
+      bar.addEventListener('click', () => selectTaskFromRow(task.id, null));
+      ganttRow.appendChild(bar);
+    }
+  }
+  ganttRows.appendChild(ganttRow);
+}
+
+function renderLegend() {
+  $('legend').innerHTML = `
+    <span style="font-size:11px;font-weight:600;color:#64748b">Legend:</span>
+    ${PHASES.map(p=>`<div class="legend-item"><div class="legend-dot" style="background:${p.color}"></div><span>${p.name.replace(/.*: /,'')}</span></div>`).join('')}
+    <div class="legend-item"><div style="width:10px;height:10px;background:#ef4444;border-radius:1px"></div><span>Today</span></div>
+    <div class="legend-item"><div style="width:10px;height:10px;background:#6366f1;transform:rotate(45deg);border-radius:2px"></div><span>Milestone</span></div>
+  `;
+}
+
+// ======= TOOLTIP =======
+function showTooltip(e, task, phase) {
+  const tt = $('tooltip');
+  const dur = task.milestone ? 'Milestone' : daysBetween(parseDate(task.start), parseDate(task.end)) + ' วัน';
+  const status = task.progress===100?'✅ เสร็จแล้ว':task.progress>0?'🔄 กำลังทำ':'⏳ ยังไม่เริ่ม';
+  tt.innerHTML = `
+    <div class="tooltip-title">${task.name}</div>
+    <div class="tooltip-row"><span>Phase</span><span>${phase.name.replace(/.*: /,'')}</span></div>
+    <div class="tooltip-row"><span>เริ่ม</span><span>${formatDate(parseDate(task.start))}</span></div>
+    <div class="tooltip-row"><span>สิ้นสุด</span><span>${formatDate(parseDate(task.end))}</span></div>
+    <div class="tooltip-row"><span>ระยะเวลา</span><span>${dur}</span></div>
+    <div class="tooltip-row"><span>สถานะ</span><span>${status}</span></div>
+    ${!task.milestone?`<div class="tooltip-progress-bar"><div class="tooltip-progress-fill" style="width:${task.progress}%;background:${phase.color}"></div></div><div style="text-align:right;font-size:11px;color:${phase.color};margin-top:3px">${task.progress}% complete</div>`:''}
+    ${task.note?`<div style="margin-top:8px;color:#94a3b8;font-size:11px">${task.note}</div>`:''}
+  `;
+  tt.classList.add('visible');
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  const tt = $('tooltip');
+  const x = Math.min(e.clientX+12, window.innerWidth-220);
+  const y = Math.min(e.clientY+12, window.innerHeight-160);
+  tt.style.left = x+'px'; tt.style.top = y+'px';
+}
+function hideTooltip() { $('tooltip').classList.remove('visible'); }
+document.addEventListener('mousemove', moveTooltip);
+
+// ======= SCROLL =======
+function scrollToToday() {
+  const panel = $('timelinePanel');
+  const todayPx = daysBetween(CHART_START, TODAY_DATE) * COL_W;
+  panel.scrollLeft = Math.max(0, todayPx - panel.clientWidth/2);
+}
+
+// ======= TABS =======
+function switchTab(tab) {
+  currentTab = tab;
+  ['task','phase','settings'].forEach(t => {
+    $('tab-'+t).classList.toggle('active', t===tab);
+  });
+  if (tab === 'task') renderTaskTab();
+  else if (tab === 'phase') renderPhaseTab();
+  else renderSettingsTab();
+}
+
+// ======= TASK TAB =======
+function selectTaskFromRow(taskId, e) {
+  if (e) e.stopPropagation();
+  selectedTaskId = taskId;
+  selectedPhaseId = null;
+  switchTab('task');
+  $('editPanelHint').textContent = 'กำลังแก้ไขงาน';
+  renderGantt();
+}
+
+function renderTaskTab() {
+  const body = $('editPanelBody');
+  if (!selectedTaskId) {
+    body.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <div class="empty-state-text">คลิก ✏️ หรือแถบงานใน Chart<br>เพื่อเลือกงานที่ต้องการแก้ไข</div>
+      </div>
+      <div class="section-divider"></div>
+      <div class="section-title">งานทั้งหมด</div>
+      ${PHASES.map(p => `
+        <div style="margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:${p.color};margin-bottom:6px;padding:4px 8px;background:${p.color}22;border-radius:6px">${p.name}</div>
+          ${p.tasks.map(t => `
+            <div class="panel-task-item" onclick="selectTaskFromRow('${t.id}', null)">
+              <span style="font-size:12px">${t.milestone?'◆':'▸'}</span>
+              <span class="panel-task-name">${t.name}</span>
+              <span class="panel-task-pct" style="color:${t.progress===100?'#10b981':t.progress>0?'#f59e0b':'#64748b'}">${t.milestone?'M':t.progress+'%'}</span>
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
+      <button class="btn primary" style="width:100%;margin-top:8px" onclick="openAddTask()">+ เพิ่มงานใหม่</button>
+    `;
+    return;
+  }
+
+  const found = findTask(selectedTaskId);
+  if (!found) { body.innerHTML = '<div class="empty-state"><div class="empty-state-text">ไม่พบงาน</div></div>'; return; }
+  const { task, phase } = found;
+
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <div style="width:10px;height:10px;border-radius:50%;background:${phase.color};flex-shrink:0"></div>
+      <div style="font-size:11px;color:#64748b">${phase.name}</div>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button class="btn danger" onclick="deleteTask('${task.id}')" style="padding:4px 10px;font-size:11px">🗑 ลบ</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">ชื่องาน</label>
+      <input class="form-input" id="f_name" value="${task.name}" oninput="liveUpdateTask()">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Phase</label>
+      <select class="form-select" id="f_phase">
+        ${PHASES.map(p=>`<option value="${p.id}" ${p.id===phase.id?'selected':''}>${p.name}</option>`).join('')}
+      </select>
+    </div>
+
+    <label class="checkbox-row" onclick="toggleMilestone()">
+      <input type="checkbox" id="f_milestone" ${task.milestone?'checked':''}>
+      <span class="checkbox-label">◆ เป็น Milestone (จุดสำคัญ ไม่มีระยะเวลา)</span>
+    </label>
+
+    <div id="f_dates_group">
+      <div class="form-row" style="margin-top:12px">
+        <div class="form-group">
+          <label class="form-label">วันเริ่มต้น</label>
+          <input class="form-input" type="date" id="f_start" value="${task.start}" oninput="liveUpdateTask()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">วันสิ้นสุด</label>
+          <input class="form-input" type="date" id="f_end" value="${task.end}" oninput="liveUpdateTask()">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group" id="f_progress_group" style="${task.milestone?'display:none':''}">
+      <label class="form-label">ความคืบหน้า</label>
+      <div class="progress-row">
+        <input class="progress-slider" type="range" id="f_progress" min="0" max="100" value="${task.progress}"
+          oninput="$('f_progress_val').textContent=this.value+'%';liveUpdateTask()">
+        <span class="progress-value" id="f_progress_val">${task.progress}%</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">หมายเหตุ</label>
+      <textarea class="form-textarea" id="f_note" placeholder="เพิ่มหมายเหตุ...">${task.note||''}</textarea>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn success" style="flex:1" onclick="saveTask()">✅ บันทึกการแก้ไข</button>
+      <button class="btn" onclick="cancelEdit()">↩ ยกเลิก</button>
+    </div>
+
+    <div class="section-divider"></div>
+    <button class="btn primary" style="width:100%" onclick="openAddTask()">+ เพิ่มงานใหม่</button>
+  `;
+  updateMilestoneUI(task.milestone);
+}
+
+function toggleMilestone() {
+  const cb = $('f_milestone');
+  setTimeout(() => updateMilestoneUI(cb.checked), 0);
+}
+function updateMilestoneUI(isMilestone) {
+  const pg = $('f_progress_group');
+  if (pg) pg.style.display = isMilestone ? 'none' : '';
+}
+
+function liveUpdateTask() {
+  // Just mark as changed, actual save on button
+  markChanged();
+}
+
+function saveTask() {
+  const found = findTask(selectedTaskId);
+  if (!found) return;
+  const { task, phase } = found;
+
+  const newName = $('f_name').value.trim();
+  const newPhaseId = $('f_phase').value;
+  const newStart = $('f_start').value;
+  const newEnd = $('f_end').value;
+  const newProgress = parseInt($('f_progress')?.value ?? task.progress);
+  const newMilestone = $('f_milestone').checked;
+  const newNote = $('f_note').value;
+
+  if (!newName) { showToast('กรุณากรอกชื่องาน', 'error'); return; }
+  if (!newMilestone && newStart > newEnd) { showToast('วันเริ่มต้นต้องมาก่อนวันสิ้นสุด', 'error'); return; }
+
+  // Move to different phase if needed
+  if (newPhaseId !== phase.id) {
+    phase.tasks = phase.tasks.filter(t => t.id !== task.id);
+    const newPhase = findPhase(newPhaseId);
+    if (newPhase) {
+      task.phaseId = newPhaseId;
+      newPhase.tasks.push(task);
+    }
+  }
+
+  task.name = newName;
+  task.start = newMilestone ? newStart : newStart;
+  task.end = newMilestone ? newStart : newEnd;
+  task.progress = newMilestone ? task.progress : newProgress;
+  task.milestone = newMilestone;
+  task.note = newNote;
+
+  pendingChanges = false;
+  $('saveBanner').classList.remove('visible');
+  saveToStorage();
+  renderAll();
+  showToast('✅ บันทึกการแก้ไขแล้ว');
+}
+
+function deleteTask(taskId) {
+  if (!confirm('ต้องการลบงานนี้?')) return;
+  for (const p of PHASES) {
+    p.tasks = p.tasks.filter(t => t.id !== taskId);
+  }
+  selectedTaskId = null;
+  pendingChanges = false;
+  $('saveBanner').classList.remove('visible');
+  saveToStorage();
+  renderAll();
+  showToast('🗑 ลบงานแล้ว');
+}
+
+function cancelEdit() {
+  selectedTaskId = null;
+  pendingChanges = false;
+  $('saveBanner').classList.remove('visible');
+  renderAll();
+}
+
+// ======= ADD TASK =======
+function openAddTask() {
+  selectedTaskId = null;
+  switchTab('task');
+  const body = $('editPanelBody');
+  const today = PROJECT.today;
+  body.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:16px">➕ เพิ่มงานใหม่</div>
+
+    <div class="form-group">
+      <label class="form-label">ชื่องาน *</label>
+      <input class="form-input" id="n_name" placeholder="ชื่องาน...">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Phase *</label>
+      <select class="form-select" id="n_phase">
+        ${PHASES.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+      </select>
+    </div>
+
+    <label class="checkbox-row">
+      <input type="checkbox" id="n_milestone">
+      <span class="checkbox-label">◆ เป็น Milestone</span>
+    </label>
+
+    <div class="form-row" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">วันเริ่มต้น</label>
+        <input class="form-input" type="date" id="n_start" value="${today}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">วันสิ้นสุด</label>
+        <input class="form-input" type="date" id="n_end" value="${today}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">ความคืบหน้า (0–100%)</label>
+      <div class="progress-row">
+        <input class="progress-slider" type="range" id="n_progress" min="0" max="100" value="0"
+          oninput="$('n_progress_val').textContent=this.value+'%'">
+        <span class="progress-value" id="n_progress_val">0%</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">หมายเหตุ</label>
+      <textarea class="form-textarea" id="n_note" placeholder="หมายเหตุ..."></textarea>
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button class="btn success" style="flex:1" onclick="confirmAddTask()">✅ เพิ่มงาน</button>
+      <button class="btn" onclick="switchTab('task')">↩ ยกเลิก</button>
+    </div>
+  `;
+}
+
+function confirmAddTask() {
+  const name = $('n_name').value.trim();
+  const phaseId = $('n_phase').value;
+  const start = $('n_start').value;
+  const end = $('n_end').value;
+  const progress = parseInt($('n_progress').value);
+  const milestone = $('n_milestone').checked;
+  const note = $('n_note').value;
+
+  if (!name) { showToast('กรุณากรอกชื่องาน', 'error'); return; }
+  if (!milestone && start > end) { showToast('วันเริ่มต้นต้องมาก่อนวันสิ้นสุด', 'error'); return; }
+
+  const phase = findPhase(phaseId);
+  if (!phase) return;
+  const newTask = { id: uid(), name, start, end: milestone ? start : end, progress, milestone, note };
+  phase.tasks.push(newTask);
+  selectedTaskId = newTask.id;
+  saveToStorage();
+  renderAll();
+  switchTab('task');
+  showToast('✅ เพิ่มงานแล้ว');
+}
+
+// ======= PHASE TAB =======
+function selectPhaseFromRow(phaseId, e) {
+  if (e) e.stopPropagation();
+  selectedPhaseId = phaseId;
+  selectedTaskId = null;
+  switchTab('phase');
+  $('editPanelHint').textContent = 'กำลังแก้ไข Phase';
+}
+
+function renderPhaseTab() {
+  const body = $('editPanelBody');
+  if (!selectedPhaseId) {
+    body.innerHTML = `
+      <div class="section-title">Phase ทั้งหมด</div>
+      ${PHASES.map(p => `
+        <div class="phase-list-item" onclick="selectPhaseFromRow('${p.id}',null)">
+          <div class="phase-dot" style="background:${p.color};width:10px;height:10px;border-radius:50%"></div>
+          <div class="phase-name-text">${p.name}</div>
+          <div class="phase-task-count">${p.tasks.length} งาน</div>
+          <button class="mini-btn del" onclick="deletePhase('${p.id}',event)" title="ลบ Phase">🗑</button>
+        </div>
+      `).join('')}
+      <button class="btn primary" style="width:100%;margin-top:8px" onclick="addPhase()">+ เพิ่ม Phase ใหม่</button>
+    `;
+    return;
+  }
+
+  const phase = findPhase(selectedPhaseId);
+  if (!phase) { body.innerHTML = ''; return; }
+
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:14px;font-weight:700;color:#f1f5f9">แก้ไข Phase</div>
+      <button class="btn danger" onclick="deletePhase('${phase.id}',null)" style="padding:4px 10px;font-size:11px">🗑 ลบ Phase</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">ชื่อ Phase</label>
+      <input class="form-input" id="p_name" value="${phase.name}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">สีประจำ Phase</label>
+      <div class="color-grid">
+        ${COLORS.map(c=>`<div class="color-swatch ${c===phase.color?'selected':''}" style="background:${c}" onclick="selectColor('${c}',this)" data-color="${c}"></div>`).join('')}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn success" style="flex:1" onclick="savePhase('${phase.id}')">✅ บันทึก</button>
+      <button class="btn" onclick="selectedPhaseId=null;renderPhaseTab()">↩ กลับ</button>
+    </div>
+
+    <div class="section-divider"></div>
+    <div class="section-title">งานใน Phase นี้ (${phase.tasks.length})</div>
+    ${phase.tasks.map(t=>`
+      <div class="panel-task-item" onclick="selectTaskFromRow('${t.id}',null)">
+        <span>${t.milestone?'◆':'▸'}</span>
+        <span class="panel-task-name">${t.name}</span>
+        <span class="panel-task-pct" style="color:${t.progress===100?'#10b981':t.progress>0?'#f59e0b':'#64748b'}">${t.milestone?'M':t.progress+'%'}</span>
+        <button class="mini-btn del" onclick="deleteTask('${t.id}');event.stopPropagation()" title="ลบ">🗑</button>
+      </div>
+    `).join('')}
+    <button class="btn" style="width:100%;margin-top:8px" onclick="openAddTaskInPhase('${phase.id}')">+ เพิ่มงานใน Phase นี้</button>
+  `;
+}
+
+let _selectedColorInForm = null;
+function selectColor(color, el) {
+  _selectedColorInForm = color;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function savePhase(phaseId) {
+  const phase = findPhase(phaseId);
+  if (!phase) return;
+  const newName = $('p_name').value.trim();
+  if (!newName) { showToast('กรุณากรอกชื่อ Phase', 'error'); return; }
+  phase.name = newName;
+  if (_selectedColorInForm) phase.color = _selectedColorInForm;
+  _selectedColorInForm = null;
+  saveToStorage();
+  renderAll();
+  showToast('✅ บันทึก Phase แล้ว');
+}
+
+function deletePhase(phaseId, e) {
+  if (e) e.stopPropagation();
+  const phase = findPhase(phaseId);
+  if (!phase) return;
+  if (!confirm(`ลบ Phase "${phase.name}" และงานทั้งหมด ${phase.tasks.length} งาน?`)) return;
+  PHASES = PHASES.filter(p => p.id !== phaseId);
+  if (selectedPhaseId === phaseId) selectedPhaseId = null;
+  saveToStorage();
+  renderAll();
+  showToast('🗑 ลบ Phase แล้ว');
+}
+
+function addPhase() {
+  const newPhase = {
+    id: phaseUid(),
+    name: '📌 New Phase',
+    color: COLORS[PHASES.length % COLORS.length],
+    tasks: []
+  };
+  PHASES.push(newPhase);
+  selectedPhaseId = newPhase.id;
+  saveToStorage();
+  renderAll();
+  renderPhaseTab();
+  showToast('✅ เพิ่ม Phase แล้ว');
+}
+
+function openAddTaskInPhase(phaseId) {
+  openAddTask();
+  setTimeout(() => { if ($('n_phase')) $('n_phase').value = phaseId; }, 50);
+}
+
+// ======= SETTINGS TAB =======
+function renderSettingsTab() {
+  const body = $('editPanelBody');
+  body.innerHTML = `
+    <div class="section-title">ข้อมูลโครงการ</div>
+
+    <div class="form-group">
+      <label class="form-label">ชื่อโครงการ</label>
+      <input class="form-input" id="s_name" value="${PROJECT.name}">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">วันเริ่มโครงการ</label>
+        <input class="form-input" type="date" id="s_start" value="${PROJECT.start}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">วันสิ้นสุดโครงการ</label>
+        <input class="form-input" type="date" id="s_end" value="${PROJECT.end}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">วันที่วันนี้ (Today Line)</label>
+      <input class="form-input" type="date" id="s_today" value="${PROJECT.today}">
+    </div>
+    <button class="btn success" style="width:100%" onclick="saveSettings()">✅ บันทึกการตั้งค่า</button>
+
+    <div class="section-divider"></div>
+    <div class="section-title">นำเข้า / ส่งออกข้อมูล</div>
+    <div style="display:flex;gap:8px;flex-direction:column">
+      <button class="btn" onclick="exportData()">💾 Export JSON</button>
+      <button class="btn" onclick="triggerImport()">📂 Import JSON</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+
+    <div class="section-divider"></div>
+    <div class="section-title">⚠️ Danger Zone</div>
+    <button class="btn danger" style="width:100%" onclick="resetToDefault()">🔄 รีเซ็ตเป็นข้อมูลตัวอย่าง</button>
+  `;
+}
+
+function saveSettings() {
+  PROJECT.name = $('s_name').value.trim() || PROJECT.name;
+  PROJECT.start = $('s_start').value || PROJECT.start;
+  PROJECT.end = $('s_end').value || PROJECT.end;
+  PROJECT.today = $('s_today').value || PROJECT.today;
+  $('titleText').textContent = '📊 ' + PROJECT.name;
+  document.title = PROJECT.name;
+  saveToStorage();
+  renderAll();
+  showToast('✅ บันทึกการตั้งค่าแล้ว');
+}
+
+// ======= SAVE/DISCARD =======
+function applyChanges() {
+  pendingChanges = false;
+  $('saveBanner').classList.remove('visible');
+  renderAll();
+  showToast('✅ บันทึกแล้ว');
+}
+function discardChanges() {
+  pendingChanges = false;
+  $('saveBanner').classList.remove('visible');
+  renderAll();
+}
+
+// ======= EXPORT/IMPORT =======
+function exportData() {
+  const data = JSON.stringify({ project: PROJECT, phases: PHASES }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'gantt_data.json';
+  a.click();
+  showToast('💾 Export สำเร็จ');
+}
+function triggerImport() { $('importFile').click(); }
+function importData(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const d = JSON.parse(ev.target.result);
+      if (d.phases) { PHASES = d.phases; if (d.project) PROJECT = d.project; saveToStorage(); renderAll(); showToast('📂 Import สำเร็จ'); }
+      else showToast('ไฟล์ไม่ถูกต้อง', 'error');
+    } catch { showToast('ไม่สามารถอ่านไฟล์ได้', 'error'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+function resetToDefault() {
+  if (!confirm('รีเซ็ตข้อมูลทั้งหมด? การเปลี่ยนแปลงทั้งหมดจะหายไป')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+// ======= INLINE TITLE EDIT =======
+function startEditTitle() {
+  const h1 = $('projectTitle');
+  const current = PROJECT.name;
+  h1.innerHTML = `
+    <input class="title-edit-input" id="titleInput" value="${current}" maxlength="60"
+      onkeydown="handleTitleKey(event)" autofocus>
+    <button class="title-edit-btn" onclick="confirmEditTitle()" title="บันทึก">✅</button>
+    <button class="title-edit-btn" onclick="cancelEditTitle()" title="ยกเลิก">✕</button>
+  `;
+  const inp = $('titleInput');
+  inp.focus();
+  inp.select();
+}
+
+function confirmEditTitle() {
+  const inp = $('titleInput');
+  const val = inp ? inp.value.trim() : '';
+  if (val) {
+    PROJECT.name = val;
+    document.title = val;
+    saveToStorage();
+  }
+  restoreTitleDisplay();
+  if (val) showToast('✅ เปลี่ยนชื่อโครงการแล้ว');
+}
+
+function cancelEditTitle() {
+  restoreTitleDisplay();
+}
+
+function handleTitleKey(e) {
+  if (e.key === 'Enter') confirmEditTitle();
+  if (e.key === 'Escape') cancelEditTitle();
+}
+
+function restoreTitleDisplay() {
+  $('projectTitle').innerHTML = `
+    <span id="titleText">📊 ${PROJECT.name}</span>
+    <button class="title-edit-btn" onclick="startEditTitle()" title="แก้ไขชื่อโครงการ">✏️</button>
+  `;
+}
+
+// ======= RENDER ALL =======
+function renderAll() {
+  renderStats();
+  renderGantt();
+  if (currentTab === 'task') renderTaskTab();
+  else if (currentTab === 'phase') renderPhaseTab();
+  else renderSettingsTab();
+}
+
+// ======= INIT =======
+renderAll();
+setTimeout(scrollToToday, 100);
+</script>
+</body>
+</html>
